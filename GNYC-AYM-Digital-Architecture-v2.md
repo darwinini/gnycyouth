@@ -1,6 +1,6 @@
 # GNYC Adventist Youth Ministries — Digital Ecosystem Architecture
 
-**Version:** 2.0
+**Version:** 2.1
 **Date:** March 18, 2026
 **Status:** Draft — For Review
 **Audience:** Director of AYM, Development Team, Stakeholders
@@ -20,6 +20,7 @@
 | Added WPGraphQL as internal API | Backend systems query WordPress content efficiently. Public site is unaffected. |
 | Simplified infrastructure | Fewer containers, no separate frontend service. |
 | Removed Strapi/Directus/Payload recommendations | Not needed — WordPress stays as the CMS with Elementor. |
+| Replaced Caddy with Nginx | Team familiarity, widely documented, Cloudflare handles TLS so Caddy's auto-cert advantage is moot. |
 
 ---
 
@@ -228,9 +229,9 @@ See [Section 6](#6-gen-ai-assistant) for full specification.
                             └──────────┬──────────┘
                                        │
                             ┌──────────▼──────────┐
-                            │       Caddy          │
+                            │       Nginx          │
                             │   (Reverse Proxy)    │
-                            │   Auto-TLS, Headers  │
+                            │   Headers, Routing   │
                             └──────────┬──────────┘
                                        │
                          ┌─────────────┼─────────────┐
@@ -274,7 +275,7 @@ See [Section 6](#6-gen-ai-assistant) for full specification.
 | `db` | mariadb:11 | 3306 | `db_data` |
 | `espo_db` | mariadb:11 | 3307 | `espo_db_data` |
 | `redis` | redis:7-alpine | 6379 | `redis_data` |
-| `caddy` | caddy:2-alpine | 80, 443 | `caddy_data`, `caddy_config` |
+| `nginx` | nginx:1.27-alpine | 80, 443 | `nginx_conf` |
 
 **7 containers total.** v1 had 9. The MCP server runs inside the `api` container as a co-process — no separate container needed.
 
@@ -832,9 +833,9 @@ Layer 1: Cloudflare ──── WAF rules, DDoS mitigation, bot management
                          Rate limiting at edge, geo-blocking if needed
                          SSL termination (Full Strict mode)
 
-Layer 2: Caddy ───────── Automatic HTTPS (internal TLS to containers)
-                         Security headers (HSTS, CSP, X-Frame-Options)
-                         Request size limits (10MB max body)
+Layer 2: Nginx ───────── Security headers (HSTS, CSP, X-Frame-Options)
+                         Request size limits (client_max_body_size 10M)
+                         Reverse proxy with upstream health checks
 
 Layer 3: Express API ─── Input validation (Zod schemas on every route)
                          SQL injection prevention (parameterized queries)
@@ -861,7 +862,7 @@ Layer 6: AI Layer ─────  System prompt guardrails
 
 WordPress handles content and financial transactions (WooCommerce). These are non-negotiable:
 
-1. **Disable XML-RPC** (`xmlrpc.php`) — block at Caddy level
+1. **Disable XML-RPC** (`xmlrpc.php`) — block at Nginx level (`location ~ /xmlrpc.php { deny all; }`)
 2. **Disable REST API user enumeration** — filter `wp-json/wp/v2/users`
 3. **Hide `/wp-admin` behind IP allowlist** — only conference office IPs + VPN
 4. **Two-Factor Authentication** — mandatory for all WP admin accounts (WP 2FA plugin)
@@ -958,14 +959,14 @@ GNYC serves a significant Spanish-speaking population. Strategy:
 
 ```yaml
 services:
-  caddy:
-    image: caddy:2-alpine
+  nginx:
+    image: nginx:1.27-alpine
     ports: ["80:80", "443:443"]
     volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile
-      - caddy_data:/data
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
     depends_on: [wordpress, api]
-    # ⚠️ Caddyfile changes: docker compose up -d --force-recreate caddy
+    # ⚠️ Config changes: docker compose up -d --force-recreate nginx
 
   wordpress:
     image: wordpress:6-php8.2-fpm
@@ -1029,7 +1030,7 @@ services:
     command: redis-server --maxmemory 256mb --maxmemory-policy allkeys-lru
 
 volumes:
-  caddy_data:
+  nginx_conf:
   wp_data:
   wp_uploads:
   espo_data:
@@ -1038,30 +1039,90 @@ volumes:
   redis_data:
 ```
 
-### 11.3 Caddyfile
+### 11.3 Nginx Configuration
 
-```
-gnycyouth.org {
+```nginx
+# nginx/default.conf
+
+upstream wordpress_backend {
+    server wordpress:8080;
+}
+
+upstream api_backend {
+    server api:4000;
+}
+
+server {
+    listen 80;
+    server_name gnycyouth.org www.gnycyouth.org;
+
+    client_max_body_size 10M;
+
+    # Security headers
+    add_header X-Content-Type-Options    "nosniff" always;
+    add_header X-Frame-Options           "SAMEORIGIN" always;
+    add_header Referrer-Policy           "strict-origin-when-cross-origin" always;
+    add_header Permissions-Policy        "camera=(), microphone=(), geolocation=()" always;
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+
+    # Block XML-RPC (brute-force vector)
+    location ~ /xmlrpc\.php$ {
+        deny all;
+        return 403;
+    }
+
+    # Block WP user enumeration via REST API
+    location ~ /wp-json/wp/v2/users {
+        deny all;
+        return 403;
+    }
+
+    # Restrict wp-admin to allowed IPs (conference office + VPN)
+    location ~ /wp-admin {
+        # allow 203.0.113.0/24;    # Conference office IP range
+        # allow 10.0.0.0/8;        # VPN range
+        # deny all;
+        proxy_pass http://wordpress_backend;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
     # Express API
-    handle /api/* {
-        reverse_proxy api:4000
+    location /api/ {
+        proxy_pass http://api_backend;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        # WebSocket support (for future SSE/push notifications)
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
     }
 
     # WordPress (everything else — Elementor renders all pages)
-    handle {
-        reverse_proxy wordpress:8080
+    location / {
+        proxy_pass http://wordpress_backend;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
     }
 
-    # Security headers
-    header {
-        Strict-Transport-Security "max-age=31536000; includeSubDomains"
-        X-Content-Type-Options "nosniff"
-        X-Frame-Options "SAMEORIGIN"
-        Referrer-Policy "strict-origin-when-cross-origin"
-        Permissions-Policy "camera=(), microphone=(), geolocation=()"
+    # Static asset caching
+    location ~* \.(js|css|png|jpg|jpeg|gif|webp|ico|svg|woff2?)$ {
+        proxy_pass http://wordpress_backend;
+        proxy_set_header Host $host;
+        expires 30d;
+        add_header Cache-Control "public, immutable";
     }
 }
 ```
+
+> **Note:** SSL termination is handled by Cloudflare (Full Strict mode). Nginx listens on port 80 inside the Docker network. Cloudflare encrypts the connection between the browser and the edge. If you need origin TLS (Cloudflare → Nginx), add a Cloudflare Origin Certificate and configure an `ssl` server block.
 
 ### 11.4 CI/CD Pipeline
 
@@ -1187,7 +1248,7 @@ Deploy **Uptime Kuma** (self-hosted, lightweight) to monitor:
 | Structure WordPress content with ACF fields (resources, manuals) | Dir + Dev | ACF field groups configured |
 | Install WPGraphQL + ACF plugins on WordPress | Dev | Verified `/graphql` endpoint |
 | Design "New Director" onboarding conversation flow | Director | Conversation script |
-| Provision VPS, configure Docker Compose base | Dev | Running containers: Caddy, WP, MariaDB, Redis |
+| Provision VPS, configure Docker Compose base | Dev | Running containers: Nginx, WP, MariaDB, Redis |
 
 ### Phase 1: Foundation (June — August 2026)
 
