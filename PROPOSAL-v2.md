@@ -32,7 +32,57 @@ The objective is to build a **Modular Digital Ecosystem**. By utilizing a modula
 
 ---
 
-## III. Tactical Point of View (The "How")
+## III. System Overview
+
+The following diagram shows how every piece of the ecosystem connects — from the leaders and parents who use it, to the tools that power it behind the scenes.
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│                      WHO USES THE SYSTEM                         │
+│                                                                  │
+│   👤 Directors        👥 Club Staff        👨‍👩‍👧 Parents/Guardians     │
+│   Submit reports      View roster          Submit forms          │
+│   Manage roster       View form status     Manage children       │
+│   Contact directors   Submit reports       View form requests    │
+│                                                                  │
+│   📋 Coordinators     🛡️ Conference Admin   💬 Everyone            │
+│   Approve reports     Manage content       Ask the AI Assistant  │
+│   View club health    Manage store         Browse resources      │
+│   View area data      Create form templates                      │
+│                                                                  │
+└──────────────────────────┬───────────────────────────────────────┘
+                           │
+                           ▼
+┌──────────────────────────────────────────────────────────────────┐
+│                    gnycyouth.org (WordPress)                      │
+│                                                                  │
+│   🌐 Public Website     📊 Leader Portal      💬 AI Assistant     │
+│   Pages, events,        Reports, roster,      Answers questions, │
+│   resources, store      forms, dashboard      coaches, translates│
+│                                                                  │
+└──────────────────────────┬───────────────────────────────────────┘
+                           │
+              ┌────────────┼────────────┐
+              │            │            │
+              ▼            ▼            ▼
+     ┌──────────────┐ ┌─────────┐ ┌──────────────┐
+     │  WordPress   │ │ EspoCRM │ │ WooCommerce  │
+     │              │ │         │ │              │
+     │  Content,    │ │ People, │ │ Youth Store, │
+     │  manuals,    │ │ clubs,  │ │ uniforms,    │
+     │  videos,     │ │ children│ │ curriculum   │
+     │  events      │ │ parents,│ │              │
+     │              │ │ certs,  │ │              │
+     │              │ │ reports │ │              │
+     └──────────────┘ └─────────┘ └──────────────┘
+
+     🔒 Protected by Cloudflare security + encrypted backups
+     💰 Total cost: ~$60-90/month | All software: $0 licensing
+```
+
+---
+
+## IV. Tactical Point of View (The "How")
 
 We are utilizing an integrated WordPress architecture as the primary hub for content and commerce, with a dedicated CRM and reporting engine running alongside it.
 
@@ -54,7 +104,31 @@ The reporting system is the backbone of conference-wide visibility. It replaces 
 - **Reports are pre-filled** with last month's data. Directors only update what changed — reducing errors and saving time.
 - **Offline support:** If a director has weak or no signal, the report saves locally and submits automatically when connectivity returns.
 
-### 3. Event Registration
+### 3. Staff Portal — Roster, Guardians & Forms
+
+The Staff Portal gives directors, staff, and parents/guardians a self-service interface for managing the people and paperwork of club operations.
+
+**For Directors:**
+- View and manage all registered children in their club (Adventurer or Pathfinder)
+- Add or modify children's records and parent/guardian information
+- View parent/guardian contact information
+- See at a glance which forms are complete, pending, or missing for every child
+- Contact other Adventurer or Pathfinder directors via email
+
+**For Club Staff:**
+- View the club roster and guardian contact information
+- View form completion status for children in their club
+- Submit monthly reports alongside the director
+
+**For Parents/Guardians:**
+- Update their own contact information
+- Register and manage their own children's profiles
+- Submit required forms (medical authorization, photo consent, permission slips) on behalf of their children
+- View the status of form requests — what's been submitted, what's pending, what's needed
+
+**Key safeguard:** Parent/guardian accounts require director approval before they can access child data. Directors verify the parent-child relationship, either through an invitation link or manual approval.
+
+### 4. Event Registration
 
 Event registration is currently under evaluation between two approaches:
 
@@ -63,13 +137,13 @@ Event registration is currently under evaluation between two approaches:
 
 A final decision will be made before Phase 1 begins in June.
 
-### 4. Operational & Analytical Integrations
+### 5. Operational & Analytical Integrations
 
 - **Google Analytics 4:** Specialized tracking to measure which resources are most valuable to our leaders and which events drive the most engagement.
 
 ---
 
-## IV. Before & After: What Changes for Your Team
+## V. Before & After: What Changes for Your Team
 
 | Today (Manual Process) | With the New System |
 |---|---|
@@ -84,7 +158,7 @@ A final decision will be made before Phase 1 begins in June.
 
 ---
 
-## V. The Youth Store: Operations & Guidelines
+## VI. The Youth Store: Operations & Guidelines
 
 The Youth Store will be built using WooCommerce to provide a robust marketplace for uniforms and curriculum.
 
@@ -98,7 +172,7 @@ The Youth Store will be built using WooCommerce to provide a robust marketplace 
 
 ---
 
-## VI. The AI Ministry Assistant (Phase 2)
+## VII. The AI Ministry Assistant (Phase 2)
 
 Beginning in September, the ecosystem will include a **conversational AI assistant** embedded directly into the website. This is not a basic FAQ bot — it is a generative AI tool that reasons, creates, and coaches using real conference data.
 
@@ -116,7 +190,7 @@ The assistant connects to all conference systems (content, CRM, store, events) t
 
 ---
 
-## VII. Project Oversight & Roadmap
+## VIII. Project Oversight & Roadmap
 
 The site is substantially built and will continue to move forward toward the April 15th launch.
 
@@ -131,14 +205,14 @@ The site is substantially built and will continue to move forward toward the Apr
 | Phase | Timeline | Deliverables |
 |---|---|---|
 | **MVP Launch** | April 15, 2026 | WordPress site live with Elementor pages, Educational Hub, alert bar, initial content |
-| **Phase 1 — Foundation** | June — August 2026 | EspoCRM deployed, monthly reporting engine live, coordinator approval dashboard, notification system (email), security hardening |
+| **Phase 1 — Foundation** | June — August 2026 | EspoCRM deployed, monthly reporting engine live, coordinator approval dashboard, director portal (roster + guardian management), parent portal (forms submission), notification system (email), security hardening |
 | **Phase 2 — Intelligence & Commerce** | September — November 2026 | AI Ministry Assistant launched, Youth Store activated (Stripe), event registration finalized, conference-wide analytics dashboard, GA4 integration |
 | **Phase 3 — Engagement** | December 2026 — February 2027 | Club ranking/scoring system, AI-powered new director onboarding, Spanish language support, offline report submission, security audit |
 | **Phase 4 — Scale** | March 2027+ | Mobile app (consuming same backend), push notifications, advanced analytics for Union reporting, AI-powered resource recommendations |
 
 ---
 
-## VIII. Cost Summary
+## IX. Cost Summary
 
 | Item | Monthly Cost |
 |---|---|
@@ -153,7 +227,7 @@ The site is substantially built and will continue to move forward toward the Apr
 
 ---
 
-## IX. Operational Guidelines
+## X. Operational Guidelines
 
 To maintain "Mission Continuity" and security:
 
