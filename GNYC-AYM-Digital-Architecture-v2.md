@@ -1,6 +1,6 @@
 # GNYC Adventist Youth Ministries — Digital Ecosystem Architecture
 
-**Version:** 2.1
+**Version:** 2.2
 **Date:** March 18, 2026
 **Status:** Draft — For Review
 **Audience:** Director of AYM, Development Team, Stakeholders
@@ -21,6 +21,10 @@
 | Simplified infrastructure | Fewer containers, no separate frontend service. |
 | Removed Strapi/Directus/Payload recommendations | Not needed — WordPress stays as the CMS with Elementor. |
 | Replaced Caddy with Nginx | Team familiarity, widely documented, Cloudflare handles TLS so Caddy's auto-cert advantage is moot. |
+| Added Staff Portal with role-based access | Director, Staff, and Parent/Guardian portals with distinct permissions. |
+| Added Children & Guardian data model | New EspoCRM entities for tracking youth enrolled in clubs and their parent/guardian contacts. |
+| Added Forms Engine | Conference-defined form templates (medical, consent, permission), parent submission, director status tracking. |
+| Expanded role matrix to 5 tiers | Added `parent` and `staff` roles alongside existing `admin`, `coordinator`, `leader` (director). |
 
 ---
 
@@ -378,6 +382,31 @@ woocommerce://get_product
 
 ──────────────────────────────────────────────────────────
 
+children://get_roster
+  Description: Get children enrolled in a specific club
+  Parameters:  club_id (string), status (enum: active, inactive, all)
+  Source:      EspoCRM REST API → Child entity
+  Auth:        Requires director, staff, or coordinator role.
+               Scoped to user's club/area.
+  Guardrail:   Never returns guardian contact info to AI.
+               Only names, ages, and form completion status.
+
+children://get_form_status
+  Description: Get form completion status for children in a club
+  Parameters:  club_id (string), form_template (string?)
+  Source:      Express API DB (form_submissions + form_templates)
+  Auth:        Requires director or staff role.
+
+guardians://get_for_child
+  Description: Get parent/guardian info for a specific child
+  Parameters:  child_id (string)
+  Source:      EspoCRM REST API → Parent/Guardian entity
+  Auth:        Requires director or coordinator role.
+  Guardrail:   Returns name and relationship only.
+               Phone/email NOT exposed via AI.
+
+──────────────────────────────────────────────────────────
+
 events://get_upcoming
   Description: Get upcoming events with registration links
   Parameters:  type (enum: pathfinder, adventurer, ay, master_guide, all),
@@ -628,32 +657,37 @@ Note: The tool-use pattern (MCP) eliminates the need for a vector database and e
 ### 7.1 Domain Ownership Map
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│                    DATA DOMAINS                          │
-│                                                         │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────────┐ │
-│  │   CONTENT   │  │   PEOPLE    │  │    COMMERCE     │ │
-│  │ (WordPress) │  │  (EspoCRM)  │  │  (WooCommerce)  │ │
-│  │             │  │             │  │                 │ │
-│  │ • Pages     │  │ • Contacts  │  │ • Products      │ │
-│  │ • Posts     │  │ • Clubs     │  │ • Orders        │ │
-│  │ • Media     │  │ • Churches  │  │ • Customers*    │ │
-│  │ • Manuals   │  │ • Certs     │  │ • Inventory     │ │
-│  │ • Alert Bar │  │ • Reports   │  │                 │ │
-│  │ • Videos    │  │ • Approvals │  │  *linked to     │ │
-│  │ • Events    │  │ • Scores    │  │   EspoCRM ID    │ │
-│  └─────────────┘  └─────────────┘  └─────────────────┘ │
-│                                                         │
-│  ┌──────────────────────────────────────────────────┐   │
-│  │             APPLICATION DB (Express API)          │   │
-│  │                                                   │   │
-│  │ • Users (auth only — profile lives in EspoCRM)   │   │
-│  │ • Sessions (Redis-backed)                        │   │
-│  │ • Monthly reports (composed here, synced to CRM) │   │
-│  │ • Audit logs                                     │   │
-│  │ • Chat conversations (Redis, TTL 24h)            │   │
-│  └──────────────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────┐
+│                         DATA DOMAINS                              │
+│                                                                   │
+│  ┌─────────────┐  ┌──────────────────┐  ┌─────────────────┐      │
+│  │   CONTENT   │  │     PEOPLE       │  │    COMMERCE     │      │
+│  │ (WordPress) │  │    (EspoCRM)     │  │  (WooCommerce)  │      │
+│  │             │  │                  │  │                 │      │
+│  │ • Pages     │  │ • Contacts       │  │ • Products      │      │
+│  │ • Posts     │  │   (Directors,    │  │ • Orders        │      │
+│  │ • Media     │  │    Staff,        │  │ • Customers*    │      │
+│  │ • Manuals   │  │    Coordinators) │  │ • Inventory     │      │
+│  │ • Alert Bar │  │ • Children       │  │                 │      │
+│  │ • Videos    │  │ • Parents/Guard. │  │  *linked to     │      │
+│  │ • Events    │  │ • Clubs          │  │   EspoCRM ID    │      │
+│  │             │  │ • Churches       │  └─────────────────┘      │
+│  └─────────────┘  │ • Certifications │                           │
+│                    │ • Scores         │                           │
+│                    └──────────────────┘                           │
+│                                                                   │
+│  ┌──────────────────────────────────────────────────────────────┐ │
+│  │              APPLICATION DB (Express API)                    │ │
+│  │                                                              │ │
+│  │ • Users (auth — profile lives in EspoCRM)                   │ │
+│  │ • Sessions (Redis-backed)                                   │ │
+│  │ • Monthly reports (composed here, synced to CRM on approval)│ │
+│  │ • Form templates (conference-defined)                       │ │
+│  │ • Form submissions (parent-submitted, per child)            │ │
+│  │ • Audit logs                                                │ │
+│  │ • Chat conversations (Redis, TTL 24h)                       │ │
+│  └──────────────────────────────────────────────────────────────┘ │
+└──────────────────────────────────────────────────────────────────┘
 ```
 
 ### 7.2 Cross-Domain Linking Strategy
@@ -711,7 +745,135 @@ CREATE TABLE monthly_reports (
 );
 ```
 
-### 7.4 Yearly Mapper (Calendar Intelligence)
+### 7.4 EspoCRM Entity Relationships (Children & Guardians)
+
+```
+┌──────────────┐
+│    Church     │
+│  (EspoCRM)   │
+└──────┬───────┘
+       │ 1:many
+       ▼
+┌──────────────┐        ┌─────────────────┐
+│     Club     │ 1:many │    Contact      │
+│  (EspoCRM)   │───────>│   (EspoCRM)     │
+│              │        │                 │
+│  • name      │        │  • role:        │
+│  • type:     │        │    director |   │
+│    adv | pf  │        │    staff |      │
+│  • church_id │        │    coordinator |│
+│              │        │    admin        │
+└──────┬───────┘        │  • club_id      │
+       │                │  • church_id    │
+       │ 1:many         └─────────────────┘
+       ▼
+┌──────────────┐        ┌─────────────────┐
+│    Child     │ many:  │ Parent/Guardian │
+│  (EspoCRM)   │ many   │   (EspoCRM)     │
+│              │<──────>│                 │
+│  • name      │        │  • name         │
+│  • dob       │        │  • phone        │
+│  • gender    │        │  • email        │
+│  • club_id   │        │  • relationship │
+│  • club_type │        │    (mother,     │
+│    (adv|pf)  │        │     father,     │
+│  • status    │        │     guardian)   │
+│    (active | │        │  • can_login    │
+│     inactive)│        │    (bool)       │
+│              │        └─────────────────┘
+└──────┬───────┘
+       │ 1:many
+       ▼
+┌──────────────────┐
+│ Form Submission  │
+│  (Express API)   │
+│                  │
+│  • child_id      │
+│  • template_id   │
+│  • status        │
+│  • submitted_by  │
+│    (parent_id)   │
+└──────────────────┘
+```
+
+### 7.5 Forms Engine Schema
+
+```sql
+-- Conference-defined form templates
+CREATE TABLE form_templates (
+    id              INT AUTO_INCREMENT PRIMARY KEY,
+    name            VARCHAR(255) NOT NULL,          -- "Medical Authorization Form"
+    slug            VARCHAR(100) NOT NULL UNIQUE,   -- "medical-authorization"
+    description     TEXT,
+    fields          JSON NOT NULL,                  -- Field definitions (see below)
+    required        BOOLEAN DEFAULT TRUE,           -- Required for all enrolled children?
+    applies_to      ENUM('all', 'adventurer', 'pathfinder') DEFAULT 'all',
+    expires         ENUM('never', 'annually', 'per_event') DEFAULT 'annually',
+    requires_review BOOLEAN DEFAULT FALSE,          -- Director must approve?
+    active          BOOLEAN DEFAULT TRUE,
+    created_at      TIMESTAMP DEFAULT NOW(),
+    updated_at      TIMESTAMP DEFAULT NOW() ON UPDATE NOW()
+);
+
+-- Example fields JSON structure:
+-- [
+--   { "name": "allergies", "type": "textarea", "label": "Known Allergies", "required": true },
+--   { "name": "medications", "type": "textarea", "label": "Current Medications", "required": false },
+--   { "name": "insurance_provider", "type": "text", "label": "Insurance Provider", "required": true },
+--   { "name": "insurance_policy", "type": "text", "label": "Policy Number", "required": true },
+--   { "name": "emergency_contact", "type": "text", "label": "Emergency Contact Name", "required": true },
+--   { "name": "emergency_phone", "type": "tel", "label": "Emergency Contact Phone", "required": true },
+--   { "name": "parent_signature", "type": "signature", "label": "Parent/Guardian Signature", "required": true }
+-- ]
+
+-- Individual form submissions (one per child per template)
+CREATE TABLE form_submissions (
+    id              INT AUTO_INCREMENT PRIMARY KEY,
+    template_id     INT NOT NULL,                   -- FK to form_templates
+    child_id        VARCHAR(24) NOT NULL,           -- EspoCRM Child entity ID
+    club_id         INT NOT NULL,                   -- FK for scoping queries
+    submitted_by    INT NOT NULL,                   -- FK to users (parent/guardian)
+    data            JSON NOT NULL,                  -- Submitted field values
+    status          ENUM('draft', 'submitted', 'approved', 'expired')
+                    DEFAULT 'draft',
+    reviewed_by     INT,                            -- FK to users (director) — if review required
+    reviewed_at     TIMESTAMP NULL,
+    reviewer_notes  TEXT,
+    submitted_at    TIMESTAMP DEFAULT NOW(),
+    expires_at      DATE,                           -- Calculated from template.expires
+
+    UNIQUE KEY uk_child_template (child_id, template_id)
+);
+
+-- Track which forms are pending for a child (view for directors)
+CREATE VIEW form_status_by_child AS
+SELECT
+    c.child_id,
+    c.club_id,
+    ft.id AS template_id,
+    ft.name AS form_name,
+    ft.required,
+    COALESCE(fs.status, 'not_started') AS status,
+    fs.submitted_at,
+    fs.expires_at,
+    CASE
+        WHEN fs.status = 'approved' AND (fs.expires_at IS NULL OR fs.expires_at > CURDATE())
+            THEN 'complete'
+        WHEN fs.status = 'submitted'
+            THEN 'pending_review'
+        WHEN fs.status = 'expired' OR (fs.expires_at IS NOT NULL AND fs.expires_at <= CURDATE())
+            THEN 'expired'
+        ELSE 'missing'
+    END AS effective_status
+FROM form_templates ft
+CROSS JOIN (SELECT DISTINCT child_id, club_id FROM form_submissions
+            UNION SELECT id AS child_id, club_id FROM espocrm_children_cache) c
+LEFT JOIN form_submissions fs
+    ON fs.template_id = ft.id AND fs.child_id = c.child_id
+WHERE ft.active = TRUE;
+```
+
+### 7.6 Yearly Mapper (Calendar Intelligence)
 
 The "Yearly Mapper" is implemented as a WordPress Custom Post Type with date-based auto-promotion logic:
 
@@ -766,6 +928,31 @@ The "Yearly Mapper" is implemented as a WordPress Custom Post Type with date-bas
 │   ├── PUT    /:id/approve          # Coordinator action
 │   ├── PUT    /:id/request-revision
 │   └── GET    /dashboard            # Conference-wide analytics
+│
+├── /children
+│   ├── GET    /                     # List children (scoped by role)
+│   ├── POST   /                     # Add child (director or parent)
+│   ├── GET    /:id                  # Child detail + form status
+│   ├── PUT    /:id                  # Update child info
+│   └── GET    /:id/forms            # All form statuses for child
+│
+├── /guardians
+│   ├── GET    /                     # List guardians (scoped by role)
+│   ├── POST   /                     # Add guardian (director or self-register)
+│   ├── GET    /:id                  # Guardian detail + linked children
+│   └── PUT    /:id                  # Update guardian info (self or director)
+│
+├── /forms
+│   ├── GET    /templates            # List active form templates
+│   ├── POST   /templates            # Create template (admin only)
+│   ├── PUT    /templates/:id        # Update template (admin only)
+│   ├── POST   /submit               # Parent submits form for child
+│   ├── GET    /club/:clubId         # Form status grid for all children in club
+│   ├── PUT    /:id/approve          # Director approves form (if review required)
+│   └── GET    /my-children          # Parent: forms for own children
+│
+├── /directors
+│   └── GET    /contact              # Directory of directors (for director-to-director email)
 │
 ├── /notifications
 │   ├── GET    /                     # User's notifications
@@ -823,7 +1010,7 @@ Coordinator (Desktop)              API Gateway              EspoCRM
 |-------|-----------|
 | **User Auth** | JWT with short-lived access tokens (15 min) + long-lived refresh tokens (7 days) in `httpOnly`, `Secure`, `SameSite=Strict` cookies. Refresh tokens rotated on use. |
 | **API-to-Backend Auth** | Service-to-service only. WPGraphQL: WP Application Passwords. EspoCRM: HMAC-signed API keys. WooCommerce: OAuth 1.0a consumer keys with read/write scoping. All keys in environment variables, never in code. |
-| **Role-Based Access** | Four tiers: `public` → `leader` → `coordinator` → `admin`. Each API route and MCP tool declares its minimum role. Middleware enforces. |
+| **Role-Based Access** | Five tiers: `public` → `parent` → `staff` → `director` → `coordinator` → `admin`. Each API route and MCP tool declares its minimum role. Middleware enforces. See §9.5 for full permissions matrix. |
 | **Session Management** | Redis-backed. Sessions invalidated on password change. Admin can force-logout any user. |
 
 ### 9.2 Defense in Depth
@@ -877,11 +1064,44 @@ WordPress handles content and financial transactions (WooCommerce). These are no
 
 | Concern | Mitigation |
 |---------|------------|
-| **Youth data (minors)** | All PII for minors stored only in EspoCRM. Access restricted to `coordinator` and `admin` roles. Parental consent captured at registration. AI assistant never surfaces PII — names and club affiliations only. |
+| **Youth data (minors)** | All PII for minors stored in EspoCRM (profile) and Express API DB (form submissions). Access restricted by role — directors see own club, coordinators see area, admins see all. Parents see only their own children. AI assistant never surfaces PII — names and club affiliations only, never contact details or medical data. |
+| **Form data (medical, consent)** | Medical authorization forms contain sensitive health information (allergies, medications, insurance). Stored encrypted in Express API DB. Access restricted to the child's director and coordinators. Parents can view/update their own submissions. Forms are never exposed through the AI assistant. |
+| **Parent/Guardian data** | Contact information (phone, email) visible only to directors and staff within the same club, and coordinators for the area. Never returned by the AI assistant. Parents can update their own contact info only. |
 | **Payment data** | NEVER stored on our servers. Stripe/PayPal handles all card data. WooCommerce stores order metadata only. |
 | **AI conversations** | Stored in Redis with 24-hour TTL. No long-term storage of chat transcripts. No training data sent to AI providers. |
 | **Data retention** | Monthly reports: 7 years. User accounts: deactivated (not deleted) on transition. Audit logs: 2 years. |
 | **Backups** | Automated daily database backups to encrypted off-site storage. 30 days rolling + monthly snapshots for 1 year. |
+
+### 9.5 Role-Based Permissions Matrix
+
+| Action | Admin | Coordinator | Director | Staff | Parent/Guardian |
+|---|---|---|---|---|---|
+| **Own Profile** | | | | | |
+| Update own information | Yes | Yes | Yes | Yes | Yes |
+| **Children & Roster** | | | | | |
+| View registered children in club | All clubs | Area clubs | Own club | Own club | No |
+| Add / modify children in club | All clubs | Area clubs | Own club | No | Own children only |
+| Create children (new enrollment) | Yes | Yes | Yes | No | Yes — own children |
+| **Parent/Guardian Records** | | | | | |
+| Add / modify parent/guardian | All | Area | Own club | No | Own record only |
+| View parent/guardian contact info | All | Area | Own club | Own club | No |
+| **Forms** | | | | | |
+| Create / manage form templates | Yes | No | No | No | No |
+| View form status for children in club | All clubs | Area clubs | Own club | Own club | No |
+| Submit forms on behalf of children | No | No | No | No | Yes — own children |
+| View form requests and status | No | No | No | No | Yes — own children |
+| **Reports** | | | | | |
+| Submit monthly reports | No | No | Yes | Yes | No |
+| Review / approve reports | All | Area clubs | No | No | No |
+| View conference-wide analytics | Yes | Yes | No | No | No |
+| **Communication** | | | | | |
+| Contact other directors via email | Yes | Yes | Yes | No | No |
+| Send notifications | Yes | Yes | No | No | No |
+| **System** | | | | | |
+| Manage WordPress content | Yes | No | No | No | No |
+| Manage WooCommerce store | Yes | No | No | No | No |
+| Manage EspoCRM entities | Yes | Limited | No | No | No |
+| Force-logout users | Yes | No | No | No | No |
 
 ---
 
@@ -889,13 +1109,14 @@ WordPress handles content and financial transactions (WooCommerce). These are no
 
 ### 10.1 User Personas & Primary Tasks
 
-| Persona | Device | Primary Task | Time Budget |
+| Persona | Device | Primary Tasks | Time Budget |
 |---------|--------|-------------|-------------|
-| **Club Director** | Mobile (85%) | Submit monthly report | < 3 minutes |
-| **Conference Coordinator** | Desktop (70%) | Review reports, view analytics | 10-15 min/day |
-| **Conference Staff** | Desktop | Manage content (Elementor), manage store (WooCommerce) | Ongoing |
-| **Youth Member / Parent** | Mobile (90%) | View events, ask chatbot, browse resources | Browsing |
-| **New Director** | Mobile/Desktop | Onboarding — chatbot guides them | First 30 days |
+| **Club Director** | Mobile (85%) | Submit monthly report, manage roster (children + guardians), view form status, contact other directors | < 3 min (report), 5-10 min (roster) |
+| **Club Staff** | Mobile (75%) | View roster, view guardian contacts, view form status, submit monthly reports | 5-10 min/week |
+| **Parent/Guardian** | Mobile (90%) | Update own info, manage children's info, submit forms (medical, consent), view form requests | 5-10 min per form |
+| **Conference Coordinator** | Desktop (70%) | Review & approve reports, view club analytics, view area rosters | 10-15 min/day |
+| **Conference Admin** | Desktop | Manage content (Elementor), manage store (WooCommerce), create form templates, manage EspoCRM | Ongoing |
+| **New Director** | Mobile/Desktop | Onboarding — chatbot guides them through setup, roster import, first report | First 30 days |
 
 ### 10.2 Performance Budgets
 
@@ -1183,6 +1404,9 @@ Deploy **Uptime Kuma** (self-hosted, lightweight) to monitor:
 | R6 | **AI hallucination** — chatbot invents event dates or policies | MEDIUM | MEDIUM | Tool-use pattern (not RAG) ensures responses are grounded in real data. System prompt explicitly prohibits invention. QA testing for common edge cases. |
 | R7 | **WordPress plugin conflicts** — WPGraphQL, ACF, WooCommerce, Elementor interact poorly | MEDIUM | LOW | Pin plugin versions. Test updates in staging. Keep total plugin count under 15. |
 | R8 | **Offline report submission conflicts** — two leaders submit for same club | MEDIUM | LOW | Unique constraint `(club_id, report_month)`. Last-write-wins with conflict notification. |
+| R9 | **Form data sensitivity** — medical forms contain health info for minors | HIGH | LOW | Encrypt form submission data at rest. Restrict access to director + coordinator + parent of child. Never expose via AI assistant. Audit log all access. |
+| R10 | **Parent self-registration abuse** — unauthorized person creates a parent account and links to a child | MEDIUM | MEDIUM | Parent accounts require director approval before accessing child data. Director verifies the parent-child relationship. Invitation-based flow preferred over open registration. |
+| R11 | **EspoCRM entity complexity** — adding Children, Parents, and form tracking significantly increases CRM schema | MEDIUM | MEDIUM | Design EspoCRM entities during Phase 0. Test with sample data before production import. Keep form submissions in Express API DB (not EspoCRM) to avoid overloading CRM. |
 
 ### 12.2 Architectural Recommendations
 
@@ -1243,8 +1467,10 @@ Deploy **Uptime Kuma** (self-hosted, lightweight) to monitor:
 
 | Task | Owner | Deliverable |
 |------|-------|-------------|
-| Define EspoCRM entity schema (Clubs, Contacts, Certs, Reports) | Dir + Dev | Entity diagram |
+| Define EspoCRM entity schema (Clubs, Contacts, Children, Parents/Guardians, Certs, Reports) | Dir + Dev | Entity diagram |
 | Design monthly report form fields and approval workflow | Director | Field list + workflow diagram |
+| Define form templates needed (medical authorization, photo consent, permission slips) | Director | Template list + required fields per form |
+| Design parent/guardian registration and approval workflow | Dir + Dev | Workflow diagram |
 | Structure WordPress content with ACF fields (resources, manuals) | Dir + Dev | ACF field groups configured |
 | Install WPGraphQL + ACF plugins on WordPress | Dev | Verified `/graphql` endpoint |
 | Design "New Director" onboarding conversation flow | Director | Conversation script |
@@ -1261,6 +1487,9 @@ Deploy **Uptime Kuma** (self-hosted, lightweight) to monitor:
 | Build MCP Server with WordPress + EspoCRM tools | June-July |
 | Build monthly report submission portal (React, embedded in WP) | July |
 | Build coordinator approval dashboard | July |
+| Build children & guardian management (director portal) | July-August |
+| Build parent/guardian self-service portal (registration, child management) | August |
+| Build forms engine — templates, submission, status tracking | August |
 | Build notification service (email via Resend) | July |
 | Deploy Uptime Kuma monitoring | June (day 1) |
 | Set up automated backups | June (day 1) |
@@ -1350,7 +1579,21 @@ Deploy **Uptime Kuma** (self-hosted, lightweight) to monitor:
 **Rationale:** Elementor generates complex CSS that will conflict with React component styles. Shadow DOM creates a clean boundary with zero risk of style leakage in either direction.
 **Status:** Accepted.
 
-### ADR-007: Headless Migration Path Preserved
+### ADR-007: Forms Engine in Express API DB (Not EspoCRM)
+
+**Decision:** Form templates and submissions are stored in the Express API's MariaDB database, not in EspoCRM.
+**Rationale:** EspoCRM is optimized for people records and relationship management, not dynamic form schemas with JSON field definitions. The forms engine requires features (JSON field validation, per-child-per-template uniqueness, expiration logic, status views) that are easier to implement and query in a relational database we fully control. EspoCRM retains ownership of people data (children, guardians); the Express API handles the transactional form workflow.
+**Trade-off:** Form completion status is not visible inside the EspoCRM admin UI. Coordinators and directors view form status through the portal dashboard. A sync summary (% complete per club) can be pushed to EspoCRM as a custom field if needed.
+**Status:** Accepted.
+
+### ADR-008: Parent Accounts Require Director Approval
+
+**Decision:** Parent/guardian accounts are invitation-based or require director approval before accessing child data.
+**Rationale:** Open self-registration for parent accounts creates a risk that unauthorized individuals could link themselves to a child and access their information. An approval step ensures the director verifies the parent-child relationship before granting access.
+**Trade-off:** Adds friction to onboarding. Mitigated by allowing directors to send invitation links directly to parents, which pre-approve the account upon registration.
+**Status:** Accepted.
+
+### ADR-009: Headless Migration Path Preserved
 
 **Decision:** The architecture explicitly supports a future headless migration without backend rework.
 **Rationale:** If WordPress becomes a performance bottleneck or Elementor becomes a limitation, the MCP server + Express API are fully decoupled. A Next.js frontend can replace WordPress rendering and connect to the exact same backend layer. This decision is documented so future teams know the path exists.
