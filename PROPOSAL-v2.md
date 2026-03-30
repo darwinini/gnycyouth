@@ -69,20 +69,18 @@ A final decision will be made before Phase 1 begins in June.
 
 ---
 
-## IV. The Impact Table
+## IV. Before & After: What Changes for Your Team
 
-This table shows how staff actions translate directly into immediate, system-wide results.
-
-| Staff Action | What the System Does |
+| Today (Manual Process) | With the New System |
 |---|---|
-| Type a message into the "Alert Bar" box | Notification pushes instantly to the website banner for all visitors |
-| Upload a PDF to the "Manual" field | Resource updates globally — no broken links, every leader sees the latest version |
-| Change a date or link in the "Event" field | Countdown updates automatically and registration activates |
-| Upload a video to the "New Director" folder | Resource appears in the leader's onboarding dashboard immediately |
-| Director submits monthly report on their phone | Coordinator is notified, data flows into the conference dashboard |
-| Coordinator approves a report | Club rankings update and scores sync to the conference-wide analytics view |
-| Add a product to the Youth Store backend | New item appears in the storefront immediately — ready for purchase |
-| Ask the AI Assistant a question | Assistant searches all conference resources and responds with sourced answers in seconds |
+| Email a PDF to 50 directors, hope they save it, re-send when it's updated | Upload once — every director always sees the latest version |
+| Call or text coordinators to check which clubs submitted reports | Dashboard shows all clubs at a glance — who's submitted, who hasn't |
+| New director calls the office asking where to find the Pathfinder manual | AI assistant walks them through onboarding step by step |
+| Collect paper forms from parents, track who's missing what by hand | Parents submit forms online — directors see completion status per child |
+| Manually reconcile uniform orders from multiple events | WooCommerce tracks every sale with digital receipts automatically |
+| Send group texts or emails for urgent announcements | Type a message into the Alert Bar — it appears instantly on the website for all visitors |
+| Maintain spreadsheets of club membership and service hours | EspoCRM tracks every club's membership, service hours, and certifications in one place |
+| Director has no signal at a remote campsite, can't submit report | Report saves on their phone and submits automatically when connectivity returns |
 
 ---
 
