@@ -1089,14 +1089,15 @@ WordPress handles content and financial transactions (WooCommerce). These are no
 | Modify children in club | All clubs | Area clubs |  Assigned clubs | Own club | Yes | Own children only |
 | Create children (new enrollment) | Yes | Yes | Assigned clubs | Yes | No | Yes — own children |
 | **Parent/Guardian Records** | | | | | |
-| Add / modify parent/guardian | All | Area | Assigned clubs | Own club | No | Own record only |
+| Add parent/guardian | All | Area | Assigned clubs | Own club | No | Own record only |
+| Modify parent/guardian | All | Area | Assigned clubs | Own club | Own club | Own record only |
 | View parent/guardian contact info | All | Area | Assigned clubs | Own club | Own club | Own children only |
 | **Forms** | | | | | |
 | Create / manage form templates | Yes | No | No | No | No | No |
 | View form status for children in club | All clubs | Area clubs | Assigned clubs | Own club | Own club | No |
 | Submit forms on behalf of children | No | No  | No | No | No | Yes — own children |
 | View form requests and status | No | No  | No | Own club | Own club | Yes — own children |
-| ** Club Reports** | | | | | |  |
+| **Club Reports** | | | | | |  |
 | Submit monthly reports | No | No  | No | Yes | Yes | No |
 | Review / approve reports | All | Area clubs  | Assigned clubs | No | No | No |
 | View conference-wide analytics | Yes | Yes  | No | No | No | No |
@@ -1123,7 +1124,7 @@ WordPress handles content and financial transactions (WooCommerce). These are no
 | **Club Director** | Mobile (85%) | Submit monthly report, manage roster (children + guardians), view form status, contact other directors | < 3 min (report), 5-10 min (roster) |
 | **Club Staff** | Mobile (75%) | View roster, view guardian contacts, view form status, submit monthly reports | 5-10 min/week |
 | **Parent/Guardian** | Mobile (90%) | Update own info, manage children's info, submit forms (medical, consent), view form requests | 5-10 min per form |
-| **Conference Coordinator** | Desktop (70%) | Review & approve reports, view club analytics, view area rosters | 10-15 min/day |
+| **Coordinators** | Desktop (70%) | Review & approve reports, view club analytics, view area rosters | 10-15 min/day |
 | **Conference Admin** | Desktop | Manage content (Elementor), manage store (WooCommerce), create form templates, manage EspoCRM | Ongoing |
 | **New Director** | Mobile/Desktop | Onboarding — chatbot guides them through setup, roster import, first report | First 30 days |
 
