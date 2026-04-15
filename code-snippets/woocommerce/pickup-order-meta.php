@@ -97,11 +97,16 @@ function save_pickup_selections( $order_id, $posted_data, $order ) {
     global $wpdb;
     $table = $wpdb->prefix . 'pickup_bookings';
 
-    // Save one booking row per pickup item
-    foreach ( $items as $item ) {
+    // Save one booking row per order (not per item) — pickup applies to entire order
+    $existing = $wpdb->get_var( $wpdb->prepare(
+        "SELECT COUNT(*) FROM {$table} WHERE order_id = %d",
+        $order_id
+    ) );
+
+    if ( ! $existing ) {
         $wpdb->insert( $table, [
             'order_id'       => $order_id,
-            'product_id'     => $item['product_id'],
+            'product_id'     => 0, // Not item-specific — whole order
             'location_id'    => $location_id,
             'pickup_date'    => $date_obj ? $date_obj->format( 'Y-m-d' ) : $date,
             'pickup_time'    => $time,
@@ -157,10 +162,6 @@ function display_pickup_in_order_admin( $order ) {
 
     echo '<div class="pickup-order-details" style="margin-top: 20px; padding: 15px; background: #f8f8f8; border: 1px solid #e5e5e5;">';
     echo '<h4 style="margin-bottom: 10px;">Pickup Details</h4>';
-
-    if ( ! empty( $pickup['products'] ) ) {
-        echo '<strong>Products:</strong> ' . esc_html( implode( ', ', $pickup['products'] ) ) . '<br>';
-    }
 
     echo '<strong>Location:</strong> ' . esc_html( $pickup['location_name'] ) . '<br>';
     echo '<strong>Address:</strong> '  . esc_html( $pickup['location_address'] ) . '<br>';
